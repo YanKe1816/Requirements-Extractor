@@ -62,14 +62,76 @@ def assert_output_shape(content):
 def test_mcp_server_can_start_and_get_root_works():
     status, body, headers = request("GET", "/")
     assert status == 200
-    assert "text/plain" in headers["Content-Type"]
-    assert "Requirements Extractor MCP server" == body
+    assert "text/html" in headers["Content-Type"]
+    assert "<h1>Requirements Extractor</h1>" in body
+    assert "extracts explicitly stated requirement information" in body
+    assert "What problem it solves" in body
+    assert "Basic usage" in body
+    assert 'href="/privacy"' in body
+    assert 'href="/terms"' in body
+    assert 'href="/support"' in body
+    assert "sidcraigau@gmail.com" in body
+
+
+def test_get_privacy_page_works():
+    status, body, headers = request("GET", "/privacy")
+    assert status == 200
+    assert "text/html" in headers["Content-Type"]
+    assert "only processes user-provided requirements text" in body
+    assert "does not store user input" in body
+    assert "does not create accounts" in body
+    assert "does not authenticate users" in body
+    assert "does not sell data" in body
+    assert "does not perform write actions" in body
+    assert "does not submit forms" in body
+    assert "does not access external systems" in body
+    assert "sidcraigau@gmail.com" in body
+
+
+def test_get_terms_page_works():
+    status, body, headers = request("GET", "/terms")
+    assert status == 200
+    assert "text/html" in headers["Content-Type"]
+    assert "structured requirements extraction utility" in body
+    assert "extracts explicitly stated information only" in body
+    assert "does not guarantee that project requirements are complete" in body
+    assert "does not provide legal, financial, medical, or professional advice" in body
+    assert "does not make project decisions for users" in body
+    assert "Users must review outputs before use" in body
+    assert "sidcraigau@gmail.com" in body
+
+
+def test_get_support_page_works():
+    status, body, headers = request("GET", "/support")
+    assert status == 200
+    assert "text/html" in headers["Content-Type"]
+    assert "<h1>Requirements Extractor Support</h1>" in body
+    assert "sidcraigau@gmail.com" in body
+    assert "Issues users can report" in body
+    assert "What to include" in body
+    assert "Data request contact" in body
+    assert "The MCP tool itself does not process support tickets" in body
 
 
 def test_get_health_works():
     status, body, _headers = request("GET", "/health")
     assert status == 200
     assert json.loads(body) == {"status": "ok"}
+
+
+def test_get_openai_apps_challenge_works(monkeypatch):
+    monkeypatch.setenv("OPENAI_APPS_CHALLENGE", "review-token")
+    status, body, headers = request("GET", "/.well-known/openai-apps-challenge")
+    assert status == 200
+    assert "text/plain" in headers["Content-Type"]
+    assert body == "review-token"
+
+
+def test_get_openai_apps_challenge_defaults_to_test(monkeypatch):
+    monkeypatch.delenv("OPENAI_APPS_CHALLENGE", raising=False)
+    status, body, _headers = request("GET", "/.well-known/openai-apps-challenge")
+    assert status == 200
+    assert body == "test"
 
 
 def test_get_mcp_is_not_mcp_endpoint():

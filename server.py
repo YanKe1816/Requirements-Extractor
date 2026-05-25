@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 
 APP_NAME = "Requirements Extractor"
 TOOL_NAME = "extract_requirements"
+SUPPORT_EMAIL = "sidcraigau@gmail.com"
 
 OUTPUT_FIELDS = {
     "functional_requirements",
@@ -78,6 +79,161 @@ TOOL_CONTRACT = {
     "outputSchema": OUTPUT_SCHEMA,
     "annotations": {"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False},
 }
+
+
+def _page(title: str, body: str) -> bytes:
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #1f2933;
+      background: #f6f8fb;
+      line-height: 1.55;
+    }}
+    main {{
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }}
+    section {{
+      background: #ffffff;
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      padding: 28px;
+    }}
+    h1 {{
+      margin: 0 0 12px;
+      font-size: 32px;
+      line-height: 1.2;
+    }}
+    h2 {{
+      margin-top: 28px;
+      font-size: 20px;
+    }}
+    nav {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid #d9e2ec;
+    }}
+    a {{
+      color: #0b63ce;
+    }}
+    ul {{
+      padding-left: 22px;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      {body}
+    </section>
+  </main>
+</body>
+</html>"""
+    return html.encode("utf-8")
+
+
+HOME_HTML = _page(
+    APP_NAME,
+    f"""
+      <h1>{APP_NAME}</h1>
+      <p>Requirements Extractor extracts explicitly stated requirement information from raw requirement text into structured JSON.</p>
+      <h2>What problem it solves</h2>
+      <p>It helps Codex and agent project preparation turn unstructured requirement notes into predictable fields without guessing, advising, or creating new requirements.</p>
+      <h2>Basic usage</h2>
+      <p>Provide raw requirements text to the MCP tool and it returns functional requirements, constraints, acceptance criteria, missing fields, the original source text, and structured errors when needed.</p>
+      <p>Support: <a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a></p>
+      <nav>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/support">Support</a>
+      </nav>
+    """,
+)
+
+PRIVACY_HTML = _page(
+    f"Privacy - {APP_NAME}",
+    f"""
+      <h1>Privacy Policy</h1>
+      <p>{APP_NAME} only processes user-provided requirements text.</p>
+      <ul>
+        <li>The app uses the input only to return structured extraction results.</li>
+        <li>The app does not store user input.</li>
+        <li>The app does not create accounts.</li>
+        <li>The app does not authenticate users.</li>
+        <li>The app does not sell data.</li>
+        <li>The app does not perform write actions.</li>
+        <li>The app does not submit forms.</li>
+        <li>The app does not access external systems.</li>
+      </ul>
+      <p>Support contact: <a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a></p>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/terms">Terms</a>
+        <a href="/support">Support</a>
+      </nav>
+    """,
+)
+
+TERMS_HTML = _page(
+    f"Terms - {APP_NAME}",
+    f"""
+      <h1>Terms of Use</h1>
+      <p>{APP_NAME} is a structured requirements extraction utility.</p>
+      <ul>
+        <li>It extracts explicitly stated information only.</li>
+        <li>It does not guarantee that project requirements are complete.</li>
+        <li>It does not provide legal, financial, medical, or professional advice.</li>
+        <li>It does not make project decisions for users.</li>
+        <li>Users must review outputs before use.</li>
+      </ul>
+      <p>Support contact: <a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a></p>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/support">Support</a>
+      </nav>
+    """,
+)
+
+SUPPORT_HTML = _page(
+    f"Support - {APP_NAME}",
+    f"""
+      <h1>{APP_NAME} Support</h1>
+      <p>Support email: <a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a></p>
+      <h2>Issues users can report</h2>
+      <ul>
+        <li>MCP connection problems.</li>
+        <li>Unexpected structured extraction output.</li>
+        <li>Missing output fields.</li>
+        <li>Privacy, terms, or data request questions.</li>
+      </ul>
+      <h2>What to include</h2>
+      <ul>
+        <li>A short description of the issue.</li>
+        <li>The relevant input text, if it is safe to share.</li>
+        <li>The returned structured output or error.</li>
+        <li>The date and approximate time of the issue.</li>
+      </ul>
+      <p>Data request contact: <a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a></p>
+      <p>The MCP tool itself does not process support tickets.</p>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </nav>
+    """,
+)
 
 OUT_OF_SCOPE_PATTERNS = [
     re.compile(r"\bshould\s+i\b", re.IGNORECASE),
@@ -313,12 +469,31 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
+    def _send_html(self, body: bytes) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/":
-            self._send_text(200, "Requirements Extractor MCP server")
+            self._send_html(HOME_HTML)
+            return
+        if self.path == "/privacy":
+            self._send_html(PRIVACY_HTML)
+            return
+        if self.path == "/terms":
+            self._send_html(TERMS_HTML)
+            return
+        if self.path == "/support":
+            self._send_html(SUPPORT_HTML)
             return
         if self.path == "/health":
             self._send_json(200, {"status": "ok"})
+            return
+        if self.path == "/.well-known/openai-apps-challenge":
+            self._send_text(200, os.getenv("OPENAI_APPS_CHALLENGE", "test"))
             return
         self._send_json(404, {"error": "not_found"})
 
