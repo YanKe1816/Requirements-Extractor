@@ -56,14 +56,13 @@ TOOL_CONTRACT = {
     "name": TOOL_NAME,
     "title": APP_NAME,
     "description": (
-        "Use this tool only when the user provides raw requirement text and asks to extract "
-        "explicitly stated functional requirements, constraints, acceptance criteria, or missing "
-        "fields into structured JSON. The tool must only extract text that is explicitly present "
-        "in the source text. Do not use this tool for decision questions, build/no-build questions, "
-        "advice, recommendations, implementation planning, code generation, support ticket handling, "
-        "form submission, authentication, or saving data. If the input is a decision question such "
-        "as 'Should I build this app?', the tool should return a structured out_of_scope error "
-        "instead of advice."
+        "Extract explicitly stated project requirements from provided requirement text. Use this tool "
+        "only when the user provides concrete requirement text, a project brief, feature notes, or "
+        "implementation notes and asks to extract, organize, or structure the stated requirements. "
+        "Do not use this tool for advice, build-or-not-build decisions, brainstorming, product strategy, "
+        "implementation planning, code generation, support ticket handling, authentication, data "
+        "submission, or storage. If the input is not requirement text, return an out_of_scope "
+        "structured error."
     ),
     "inputSchema": {
         "type": "object",
@@ -238,10 +237,16 @@ SUPPORT_HTML = _page(
 OUT_OF_SCOPE_PATTERNS = [
     re.compile(r"\bshould\s+i\b", re.IGNORECASE),
     re.compile(r"\bshould\s+we\b", re.IGNORECASE),
+    re.compile(r"\bshould\s+i\s+make\b", re.IGNORECASE),
+    re.compile(r"\bis\s+this\s+a\s+good\s+idea\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+should\s+(?:i|we)\s+build\b", re.IGNORECASE),
     re.compile(r"\bwhat\s+should\s+i\b", re.IGNORECASE),
+    re.compile(r"\bgive\s+me\s+product\s+advice\b", re.IGNORECASE),
     re.compile(r"\bwrite\s+(?:the\s+)?code\b", re.IGNORECASE),
+    re.compile(r"\bwrite\s+(?:the\s+)?python\s+code\b", re.IGNORECASE),
     re.compile(r"\bgenerate\s+(?:the\s+)?code\b", re.IGNORECASE),
     re.compile(r"\bimplement\s+(?:this|the)\s+app\b", re.IGNORECASE),
+    re.compile(r"\bfile\s+a\s+support\s+ticket\b", re.IGNORECASE),
     re.compile(r"\bsubmit\s+(?:this\s+)?form\b", re.IGNORECASE),
     re.compile(r"\bsave\s+the\s+data\b", re.IGNORECASE),
     re.compile(r"\bauthenticate\b", re.IGNORECASE),
@@ -286,7 +291,7 @@ def _invalid_value_output() -> Dict[str, Any]:
 def _out_of_scope_output(source_text: str) -> Dict[str, Any]:
     return _error_output(
         "out_of_scope",
-        "Input is out of scope for Requirements Extractor. This tool only extracts explicitly stated requirements from raw requirement text.",
+        "The input is not requirement text.",
         source_text,
     )
 

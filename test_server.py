@@ -3,6 +3,8 @@ import threading
 import urllib.error
 import urllib.request
 
+import pytest
+
 from server import OUTPUT_FIELDS, TOOL_NAME, create_server
 
 server = None
@@ -160,9 +162,15 @@ def test_tools_list_returns_one_complete_tool_contract():
     tool = tools[0]
     assert tool["name"] == "extract_requirements"
     assert tool["title"] == "Requirements Extractor"
-    assert "Use this tool only when the user provides raw requirement text" in tool["description"]
-    assert "decision question such as 'Should I build this app?'" in tool["description"]
-    assert "instead of advice" in tool["description"]
+    assert tool["description"] == (
+        "Extract explicitly stated project requirements from provided requirement text. Use this tool "
+        "only when the user provides concrete requirement text, a project brief, feature notes, or "
+        "implementation notes and asks to extract, organize, or structure the stated requirements. "
+        "Do not use this tool for advice, build-or-not-build decisions, brainstorming, product strategy, "
+        "implementation planning, code generation, support ticket handling, authentication, data "
+        "submission, or storage. If the input is not requirement text, return an out_of_scope "
+        "structured error."
+    )
     assert "inputSchema" in tool
     assert "outputSchema" in tool
     assert "annotations" in tool
@@ -301,9 +309,7 @@ def test_negative_advice_request_returns_out_of_scope_without_advice():
     assert_output_shape(content)
     assert data["result"]["isError"] is True
     assert content["errors"][0]["code"] == "out_of_scope"
-    assert content["errors"][0]["message"] == (
-        "Input is out of scope for Requirements Extractor. This tool only extracts explicitly stated requirements from raw requirement text."
-    )
+    assert content["errors"][0]["message"] == "The input is not requirement text."
     assert content["functional_requirements"] == []
     assert data["result"]["content"] == [
         {"type": "text", "text": "Requirements extraction failed with a structured error."}
@@ -320,7 +326,64 @@ def test_negative_what_should_we_build_next_returns_out_of_scope():
     assert_output_shape(content)
     assert data["result"]["isError"] is True
     assert content["errors"][0]["code"] == "out_of_scope"
+    assert content["errors"][0]["message"] == "The input is not requirement text."
     assert content["functional_requirements"] == []
+
+
+@pytest.mark.parametrize(
+    "requirements_text",
+    [
+        "Should I build this app?",
+        "Should I make this?",
+        "Is this a good idea?",
+        "What should I build?",
+        "Give me product advice",
+        "Write the code for this app",
+        "Write the Python code for this app.",
+        "Please file a support ticket",
+        "Please file a support ticket saying the MCP server is broken.",
+    ],
+)
+def test_gate_4_negative_prompts_return_exact_out_of_scope_shape(requirements_text):
+    _status, data = call_tool({"requirements_text": requirements_text})
+    content = structured(data)
+    assert_output_shape(content)
+    assert data["result"]["isError"] is True
+    assert data["result"]["content"] == [
+        {"type": "text", "text": "Requirements extraction failed with a structured error."}
+    ]
+    assert content == {
+        "functional_requirements": [],
+        "constraints": [],
+        "acceptance_criteria": [],
+        "missing_fields": [],
+        "source_text": requirements_text,
+        "errors": [{"code": "out_of_scope", "message": "The input is not requirement text."}],
+    }
+
+
+@pytest.mark.parametrize(
+    "requirements_text",
+    [
+        "Should I build this app?",
+        "Should I make this?",
+        "Is this a good idea?",
+        "What should I build?",
+        "Give me product advice",
+        "Write the Python code for this app.",
+        "Please file a support ticket saying the MCP server is broken.",
+    ],
+)
+def test_gate_4_negative_generated_content_contains_no_advice_plan_or_code(requirements_text):
+    _status, data = call_tool({"requirements_text": requirements_text})
+    generated_text = " ".join(item["text"] for item in data["result"]["content"])
+    lowered = generated_text.lower()
+    assert "probably" not in lowered
+    assert "you should" not in lowered
+    assert "recommend" not in lowered
+    assert "next step" not in lowered
+    assert "plan" not in lowered
+    assert "```" not in generated_text
 
 
 def test_error_content_text_is_structured_error_message():
